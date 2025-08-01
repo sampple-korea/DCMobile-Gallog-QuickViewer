@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DCMobile Gallog QuickViewer
 // @namespace    https://lvl.kr
-// @version      1.0
+// @version      1.1
 // @description  갤로그에 직접 들어가지 않고 반/고닉의 정보를 빠르게 확인할수 있습니다.
 // @author       삼플
 // @match        https://m.dcinside.com/board/*
@@ -36,9 +36,9 @@
     };
 
     function injectCSS(css) {
-        if (document.getElementById('dgp-style-v13')) return;
+        if (document.getElementById('dgp-style-v14')) return;
         const style = document.createElement('style');
-        style.id = 'dgp-style-v13';
+        style.id = 'dgp-style-v14';
         style.textContent = css;
         document.head.appendChild(style);
     }
@@ -79,9 +79,10 @@
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 15px; letter-spacing: -0.8px;
             clip-path: inset(0 100% 0 0); transition: clip-path 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
         }
-        .dgp-userid-wrapper { text-align: right; white-space: nowrap; opacity: 0; transform: translateY(5px); transition: opacity 0.4s ease 0.25s, transform 0.4s ease 0.25s; }
+        .dgp-userid-wrapper { display: flex; align-items: center; text-align: right; white-space: nowrap; opacity: 0; transform: translateY(5px); transition: opacity 0.4s ease 0.25s, transform 0.4s ease 0.25s; }
+        .dgp-privacy-icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; margin-right: 5px; color: var(--dgp-muted-color); }
         .dgp-userid { font-size: 13px; font-weight: 500; color: var(--dgp-muted-color); }
-        .dgp-refresh-btn { cursor: pointer; display: inline-block; width: 20px; height: 20px; vertical-align: middle; opacity: 0.6; transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s; }
+        .dgp-refresh-btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; opacity: 0.6; transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s; margin-left: 4px; }
         .dgp-refresh-btn:hover { opacity: 1; transform: rotate(360deg) scale(1.1); }
         .dgp-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; opacity: 0; transform: translateY(10px); transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1), transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
         .dgp-item:nth-of-type(2) { transition-delay: 0.2s; }
@@ -110,12 +111,25 @@
     const parseGallogData = (html) => {
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const getData = (selector, regex) => doc.querySelector(selector)?.textContent.trim().match(regex)?.[1] || doc.querySelector(selector)?.textContent.trim() || 'N/A';
+        
+        const privacyEl = doc.querySelector('section.grid:nth-of-type(2) .md-tit .btn-mline');
+        let privacy = 'public';
+        if (privacyEl) {
+            const privacyText = privacyEl.textContent.trim();
+            if (privacyText === '비공개') {
+                privacy = 'private';
+            } else if (privacyText === '일부 공개') {
+                privacy = 'partial';
+            }
+        }
+        
         return {
             visitors: getData('.today-visit', /([\d,]+\s*\/\s*[\d,]+)/),
             posts: getData('section.grid:nth-of-type(2) .md-tit a', /\(([\d,]+)\)/),
             comments: getData('section.grid:nth-of-type(3) .md-tit a', /\(([\d,]+)\)/),
             silbe: doc.querySelector('#galler-badge .point-red')?.textContent.trim() || '0회',
             description: doc.querySelector('.gallog-desc')?.textContent.trim() || '',
+            privacy: privacy,
         };
     };
     const fetchGallogInfo = (userId, force = false) => new Promise(resolve => {
@@ -141,19 +155,39 @@
         const title = data?.description || (state === 'success' ? '갤로그 정보' : '정보 조회');
         const footerCloseGuide = `<span>외부 영역 터치 / 스크롤하여 닫기</span>`;
         let content, footerContent;
+
+        let privacyIconHtml = '';
+        let privacyTitle = '';
+        switch (data?.privacy) {
+            case 'public':
+                privacyTitle = '갤로그 전체 공개';
+                privacyIconHtml = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>`;
+                break;
+            case 'partial':
+                privacyTitle = '갤로그 일부 공개';
+                privacyIconHtml = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.82l2.92 2.92c1.51-1.26 2.7-2.89 3.44-4.74C21.27 7.11 17 4 12 4c-1.27 0-2.49.2-3.64.57l2.17 2.17c.56-.23 1.17-.34 1.83-.34zM2.71 3.16a.996.996 0 000 1.41l2.06 2.06C3.21 8.27 1.81 10.08 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l2.06 2.06a.996.996 0 101.41-1.41L4.12 3.16a.996.996 0 00-1.41 0zM12 17a5 5 0 01-5-5c0-.65.13-1.26.36-1.82L15.28 17.1c-.56.23-1.17.36-1.82.36a5.002 5.002 0 01-1.46-.22z"/></svg>`;
+                break;
+            case 'private':
+                privacyTitle = '갤로그 비공개';
+                privacyIconHtml = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM9 8V6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9z"/></svg>`;
+                break;
+        }
+        const privacyIcon = data?.privacy ? `<span class="dgp-privacy-icon" title="${privacyTitle}">${privacyIconHtml}</span>` : '';
+
+
         if (state === 'error') {
             content = `<div class="dgp-header"><div class="dgp-title" style="background:var(--dgp-error-color); clip-path: inset(0 0 0 0);">⚠️ 조회 실패</div></div>
                        <div class="dgp-item" style="opacity:1; transform:none;">네트워크 오류 또는<br>존재하지 않는 사용자입니다.</div>
                        <div class="dgp-footer" style="opacity:1;">${footerCloseGuide}</div>`;
         } else {
             footerContent = `<a href="${originalHref}" target="_blank" class="dgp-direct-link" onclick="event.stopPropagation()">갤로그 바로가기 ↗</a> ${footerCloseGuide}`;
-            // [수정] 로딩 상태 표시를 위해 silbe 항목을 추가합니다.
             const [visitors, posts, comments, silbe] = state === 'loading'
                 ? Array(4).fill('<span class="dgp-loading-spinner"></span>')
                 : [data.visitors, data.posts, data.comments, data.silbe];
             content = `<div class="dgp-header">
                          <div class="dgp-title" title="${title}">${title}</div>
                          <div class="dgp-userid-wrapper">
+                           ${privacyIcon}
                            <span class="dgp-userid">${data.userId}</span>
                            <svg class="dgp-refresh-btn" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
                          </div>
