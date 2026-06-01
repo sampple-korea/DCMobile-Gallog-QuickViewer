@@ -4,6 +4,7 @@
 // @version      1.1
 // @description  갤로그에 직접 들어가지 않고 반/고닉의 정보를 빠르게 확인할수 있습니다.
 // @author       삼플
+// @license      Apache-2.0
 // @match        https://m.dcinside.com/board/*
 // @match        https://m.dcinside.com/mini/*
 // @grant        GM_xmlhttpRequest

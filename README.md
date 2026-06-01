@@ -39,4 +39,6 @@ The script stores only short-lived cache entries through the userscript manager.
 
 ## License
 
-MIT
+Apache License, Version 2.0.
+
+Redistributions must preserve the attribution notices in `NOTICE`.
